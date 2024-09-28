@@ -1,0 +1,19 @@
+{
+    "name": "SCServo",
+    "version": "1.0.0",
+    "description": "Упрощённая библиотека для управления SCSCL сервоприводами",
+    "keywords": "servo, SCSCL, motor",
+    "repository": {
+        "type": "git",
+        "url": "https://example.com/SCServo.git"
+    },
+    "authors": [
+        {
+            "name": "Suieubayev Maxat",
+            "email": "maxat.suieubayev@gmail.com"
+        }
+    ],
+    "license": "MIT",
+    "frameworks": "arduino",
+    "platforms": "*"
+}
