@@ -2,41 +2,72 @@
 
 SCSCL sc;
 
-// Определение пинов для кнопок
-const int button1Pin = 2;  // Кнопка 1 (запрещает движение по часовой)
-const int button2Pin = 3;  // Кнопка 2 (запрещает движение против часовой)
+// Определение пинов для концевиков
+const int button1Pin = 2;  // Концевик 1 (запрещает движение по часовой)
+const int button2Pin = 3;  // Концевик 2 (запрещает движение против часовой)
+
+unsigned long debounceDelay = 50;  // Задержка для устранения дребезга
+unsigned long lastDebounceTime1 = 0;  // Время последнего изменения состояния для концевика 1
+unsigned long lastDebounceTime2 = 0;  // Время последнего изменения состояния для концевика 2
+
+int button1State = HIGH;
+int button2State = HIGH;
+bool isMovingForward = false;  // Флаг для отслеживания движения по часовой стрелке
+bool isMovingBackward = false;  // Флаг для отслеживания движения против часовой стрелки
+
+// Функция для проверки состояния концевиков
+bool isMovementAllowed(int pin, int &lastState, unsigned long &lastDebounceTime) {
+  int currentState = digitalRead(pin);  // Читаем текущее состояние концевика
+  unsigned long currentTime = millis();
+
+  // Проверяем, изменилось ли состояние концевика
+  if (currentState != lastState) {
+    lastDebounceTime = currentTime;  // Обновляем время изменения состояния
+  }
+
+  // Проверяем, прошло ли достаточно времени для исключения дребезга
+  if ((currentTime - lastDebounceTime) > debounceDelay) {
+    if (currentState == LOW) {
+      return false;  // Движение запрещено, концевик нажат
+    }
+  }
+
+  lastState = currentState;  // Обновляем состояние концевика
+  return true;  // Движение разрешено
+}
+
+void stopMovement() {
+  sc.WritePWM(1, 0);  // Останавливаем движение
+  Serial.println("Остановка движения");
+  isMovingForward = false;
+  isMovingBackward = false;
+}
 
 void setup() {
   Serial.begin(115200);  // Для связи с компьютером
   Serial1.begin(1000000);  // Для связи с сервоприводом через Serial1
   sc.pSerial = &Serial1;
 
-  // Настройка пинов кнопок как входов
+  // Настройка пинов концевиков как входов
   pinMode(button1Pin, INPUT_PULLUP);
   pinMode(button2Pin, INPUT_PULLUP);
 
-  // Перекалибровка нулевой позиции (в случае, если поддерживается)
-  // Например, sc.ResetPos(1); или аналогичная команда
-
-  // Движение к текущей позиции 0 градусов как к новой нулевой
-  sc.WritePWM(1, 500);
-  delay(1000);
-  sc.WritePWM(1, 0);
-  delay(1000);
-  sc.WritePWM(1, -500);
-  delay(1000);
-  sc.WritePWM(1, 0);
-  
-  sc.PWMMode(1);  // Переключение в PWM режим
+  // Переключение в PWM режим
+  sc.PWMMode(1);
 }
 
 void loop() {
-  int button1State = digitalRead(button1Pin);  // Чтение состояния кнопки 1
-  int button2State = digitalRead(button2Pin);  // Чтение состояния кнопки 2
-  Serial.print("B1:");
-  Serial.println(button1State);
-  
+  // Проверяем состояние концевиков и останавливаем движение в соответствующую сторону
+  if (isMovingForward && !isMovementAllowed(button1Pin, button1State, lastDebounceTime1)) {
+    Serial.println("Концевик 1 нажат, остановка движения по часовой");
+    stopMovement();  // Останавливаем только движение вперед
+  }
+  if (isMovingBackward && !isMovementAllowed(button2Pin, button2State, lastDebounceTime2)) {
+    Serial.println("Концевик 2 нажат, остановка движения против часовой");
+    stopMovement();  // Останавливаем только движение назад
+  }
 
+  // Чтение команд от компьютера
   if (Serial.available() > 0) {
     String receivedData = "";  // Создаем пустую строку для хранения данных
     char incomingChar;
@@ -49,39 +80,36 @@ void loop() {
     }
 
     // Теперь данные собраны в receivedData
-    Serial.println("Получено сообщение: " + receivedData);  // Добавлено отладочное сообщение
-
     char command = receivedData.charAt(0);  // Извлекаем первый символ как команду
     int speed = receivedData.substring(1).toInt();  // Преобразуем оставшуюся часть в число (скорость)
 
-    Serial.println(command);  // Вывод команды
-    Serial.println(speed);    // Вывод скорости
-
-
-//2 скорость - 51мм/мин
-//5 скорость - 153мм/мин
-//10 скорость  - 306мм/мин
-
-
+    // Команда вращения по часовой стрелке (движение вперед)
     if (command == 'F') {
-      if (button1State == HIGH) {  // Если кнопка 1 не нажата
-        sc.WritePWM(1, speed);
-        Serial.println("Вращение по часовой");  // Отладочное сообщение
+      if (isMovementAllowed(button1Pin, button1State, lastDebounceTime1)) {
+        sc.WritePWM(1, speed);  // Вращение по часовой стрелке
+        Serial.println("Вращение по часовой");
+        isMovingForward = true;
+        isMovingBackward = false;  // Останавливаем обратное движение
       } else {
-        Serial.println("Вращение по часовой запрещено");  // Отладочное сообщение
+        Serial.println("Вращение по часовой запрещено из-за концевика 1");
+        stopMovement();  // Останавливаем движение по часовой, если концевик 1 нажат
       }
     } 
+    // Команда вращения против часовой стрелки (движение назад)
     else if (command == 'B') {
-      if (button2State == HIGH) {  // Если кнопка 2 не нажата
-        sc.WritePWM(1, -speed);
-        Serial.println("Вращение против часовой");  // Отладочное сообщение
+      if (isMovementAllowed(button2Pin, button2State, lastDebounceTime2)) {
+        sc.WritePWM(1, -speed);  // Вращение против часовой стрелки
+        Serial.println("Вращение против часовой");
+        isMovingBackward = true;
+        isMovingForward = false;  // Останавливаем движение вперед
       } else {
-        Serial.println("Вращение против часовой запрещено");  // Отладочное сообщение
+        Serial.println("Вращение против часовой запрещено из-за концевика 2");
+        stopMovement();  // Останавливаем движение против часовой, если концевик 2 нажат
       }
     } 
+    // Команда остановки
     else if (command == 'S') {
-      sc.WritePWM(1, 0);
-      Serial.println("Остановка");  // Отладочное сообщение
+      stopMovement();  // Остановка
     }
   }
 }

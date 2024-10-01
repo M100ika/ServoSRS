@@ -16,16 +16,16 @@ else:
 
 # Словарь соответствия скоростей
 speed_dict = {
-    "1 (25 мм/с)": 25,
-    "2 (50 мм/с)": 50,
-    "3 (75 мм/с)": 75,
-    "4 (100 мм/с)": 100,
-    "5 (125 мм/с)": 125,
-    "6 (150 мм/с)": 150,
-    "7 (175 мм/с)": 175,
-    "8 (200 мм/с)": 200,
-    "9 (225 мм/с)": 225,
-    "10 (250 мм/с)": 250
+    "1 (25 мм/с)": 100,
+    "2 (50 мм/с)": 200,
+    "3 (75 мм/с)": 300,
+    "4 (100 мм/с)": 400,
+    "5 (125 мм/с)": 500,
+    "6 (150 мм/с)": 600,
+    "7 (175 мм/с)": 700,
+    "8 (200 мм/с)": 800,
+    "9 (225 мм/с)": 900,
+    "10 (250 мм/с)": 1000
 }
 
 # Цветовые настройки
@@ -91,12 +91,19 @@ def connect_serial():
 
 def send_command(command):
     """Отправляет команду на устройство."""
-    global ser
-    if ser and ser.is_open:
-        ser.write(command.encode())
-        ser.flush()
-    else:
-        messagebox.showwarning("Внимание", "Соединение с устройством не установлено!")
+    try:
+        global ser
+        if ser and ser.is_open:
+            ser.write(command.encode())
+            ser.flush()
+        else:
+            messagebox.showwarning("Внимание", "Соединение с устройством не установлено!")
+    except serial.SerialException as e:
+        messagebox.showerror("Ошибка передачи", f"Не удалось отправить команду: {e}")
+        ser = None
+    except OSError as e:
+        messagebox.showerror("Ошибка системы", f"Ошибка ввода/вывода: {e}")
+        ser = None
 
 def rotate_clockwise():
     speed = speed_dict[speed_var.get()]  # Получаем скорость из выбранного значения
