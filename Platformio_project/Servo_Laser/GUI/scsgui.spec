@@ -35,5 +35,5 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['/home/maxat/Projects/servoSRS/Platformio_project/Servo_Laser/test/free-icon-laser-2881010.png'],
+    icon=['C:\\Users\\maxat.suieubayev\\Desktop\\Макс\\family_tree\\laserbeam_laser_13620.ico'],
 )
